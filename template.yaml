@@ -1,63 +1,36 @@
 Resources:
 
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: lambda-upload-execution-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: lambda-logs-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
   UploadFunction:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: UploadFunction
       Handler: index.handler
       Runtime: nodejs18.x
-      Role: arn:aws:iam::123456789012:role/YourLambdaExecutionRole # Replace this
+      Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ZipFile: |
           exports.handler = async (event) => {
-            console.log("Event received:", event);
-            return {
-              statusCode: 200,
-              body: JSON.stringify({ message: "Image uploaded" })
-            };
-          };
-
-  ImageUploadApi:
-    Type: AWS::ApiGateway::RestApi
-    Properties:
-      Name: ImageUploadApi
-
-  UploadResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref ImageUploadApi
-      ParentId: !GetAtt ImageUploadApi.RootResourceId
-      PathPart: upload
-
-  UploadMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      AuthorizationType: NONE
-      HttpMethod: POST
-      ResourceId: !Ref UploadResource
-      RestApiId: !Ref ImageUploadApi
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub
-          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UploadFunction.Arn}/invocations
-
-  ApiDeploymentv2:
-    Type: AWS::ApiGateway::Deployment
-    DependsOn: UploadMethod
-    Properties:
-      RestApiId: !Ref ImageUploadApi
-      StageName: prod
-
-  LambdaPermissionForApiGateway:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref UploadFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ImageUploadApi}/*/POST/upload"
-
-Outputs:
-  ApiInvokeURL:
-    Description: "Invoke URL for image upload endpoint"
-    Value: !Sub "https://${ImageUploadApi}.execute-api.${AWS::Region}.amazonaws.com/prod/upload"
+            console.log("Event received
